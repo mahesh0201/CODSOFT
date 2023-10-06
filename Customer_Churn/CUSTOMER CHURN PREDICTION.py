@@ -1,219 +1,92 @@
-# Importing Libraries
 import pandas as pd
-import numpy as np
-import seaborn as sns
 import matplotlib.pyplot as plt
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report
-
-# Importing CSV File
-data = pd.read_csv(r'/content/Churn_Modelling.csv')
-
-# Showing Data
-data.head()
-data.isnull().sum()
-corre = data.corr()
-
-data.info()
-
-# Dropping the Columns
-data1 = data.drop(['Surname','CustomerId','RowNumber'],axis=1)
-
-# Checking DataTypes
-data1.dtypes
-
-# Describing the data1
-data1.describe()
-
-co = data1.corr()
-
-# This is Showing that the dataset is imbalanced
-data1['Exited'].value_counts()
-data1.hist(figsize=(20,20))
-
-plt.figure(figsize=(10,8))
-sns.heatmap(co, annot = True, vmax = 8, square = True)
-plt.show()
-
-data1.sample(10)
-data1.head()
-
-# Importing the seaborn library
-sns.boxplot(data1['Balance'])
-sns.boxplot(data1['EstimatedSalary'])
-sns.boxplot(data1['Tenure'])
-
-data1['Tenure'].value_counts()
-sns.countplot(x = 'Tenure', hue = "Exited", data = data1)
-sns.countplot(x = data1['Exited'], data = data1)
-
-# For Geography
-print("Before Encoding", data1['Geography'].unique())
-from sklearn.preprocessing import LabelEncoder
-label = LabelEncoder()
-data1['Geography']=label.fit_transform(data1['Geography'])
-print("After Encoding", data1['Geography'].unique())
-
-# For Gender
-print("Before Encoding", data1['Gender'].unique())
-label = LabelEncoder()
-data1['Gender']=label.fit_transform(data1['Gender'])
-print("After Encoding", data1['Gender'].unique())
-
-data1.head()
-data1.dtypes
-
-zeros,ones = data1.Exited.value_counts()
-fr1 = data1[data1['Exited']==1]
-nfr1 = data1[data1['Exited']==0]
-nfr1=nfr1.sample(n=ones, replace= False)
-pdata = pd.concat([fr1,nfr1],axis=0)
-
-data1['Exited'].value_counts()
-
-x = data1.drop('Exited', axis=1)
-y = data1['Exited']
-x.dtypes
-
-
-# Spliting the test and test data 
-from sklearn.model_selection import train_test_split
-x_train, x_test, y_train, y_test = train_test_split(x,y,test_size=0.25, random_state = 2)
-x.shape
-y.shape
-
-from sklearn.preprocessing import StandardScaler
-sclr = StandardScaler()
-x_train_Scaled = sclr.fit_transform(x_train)
-x_test_Scaled = sclr.fit_transform(x_test)
-
-from sklearn.ensemble import GradientBoostingClassifier
-model = GradientBoostingClassifier(learning_rate = 0.17, random_state = 2)
-print(model.fit(x_train, y_train))
-y_pred = model.predict(x_test)
-
-from sklearn.metrics import classification_report
-print(classification_report(y_test, y_pred))
-
 import seaborn as sns
-from sklearn.metrics import confusion_matrix
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 
-# Considering you've "y_pred" containing your model's predictions
+# Load the dataset
+data = pd.read_csv("Churn_Modelling.csv")
+
+# Drop unnecessary columns
+data = data.drop(['RowNumber', 'CustomerId', 'Surname'], axis=1)
+
+# Encode categorical features
+label_encoders = {}
+for column in data.select_dtypes(include=['object']):
+    le = LabelEncoder()
+    data[column] = le.fit_transform(data[column])
+    label_encoders[column] = le
+
+# Split the data into features and target
+X = data.drop("Exited", axis=1)
+y = data["Exited"]
+
+# Split the dataset into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Standardize features
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
+
+# Train a Random Forest classifier
+clf = RandomForestClassifier(n_estimators=100, random_state=42)
+clf.fit(X_train_scaled, y_train)
+
+# Predictions
+y_pred = clf.predict(X_test_scaled)
+
+# Evaluate the model
+accuracy = accuracy_score(y_test, y_pred)
 conf_matrix = confusion_matrix(y_test, y_pred)
+classification_rep = classification_report(y_test, y_pred)
 
-# Create a heatmap for the confusion matrix
-sns.heatmap(conf_matrix, annot = True, fmt = "d", cmap = "Blues")
+# Print evaluation metrics
+print("Accuracy:", accuracy)
+print("Confusion Matrix:\n", conf_matrix)
+print("Classification Report:\n", classification_rep)
+
+# Visualizations
+plt.figure(figsize=(6, 6))
+sns.heatmap(conf_matrix, annot=True, fmt="d", cmap="Blues",
+            xticklabels=["Not Churned", "Churned"],
+            yticklabels=["Not Churned", "Churned"])
+plt.title("Confusion Matrix")
 plt.xlabel("Predicted")
 plt.ylabel("Actual")
-plt.title("Confusion Matrix")
 plt.show()
 
-from sklearn.metrics import roc_curve, auc 
- # Get Predicted probabilities for the positive class
-y_probs = model.predict_proba(x_test)[:, 1]
-
-# Calculating ROC Curve
-fpr, tpr, _ = roc_curve(y_test, y_probs)
-roc_auc = auc(fpr, tpr)
-
-# Ploting ROC Curve
-plt.plot(fpr, tpr, color = 'darkorange', lw = 2, label = 'ROC curve (area = %0.2f)' % roc_auc)
-plt.plot([0, 1], [0, 1], color = 'navy', lw = 2, linestyle = '--')
-plt.xlim([0.0, 1.0])
-plt.ylim([0.0, 1.05])
-plt.xlabel("False Positive Rate")
-plt.ylabel("True Positive Rate")
-plt.title("Receiver Operating Characteristic")
-plt.legend(loc = "lower right")
+plt.figure(figsize=(5, 4))
+sns.countplot(data=data, x='Exited')
+plt.title('Distribution of Churn vs. Non-Churn')
+plt.xlabel('Churn')
+plt.ylabel('Count')
 plt.show()
 
-# Logistic Regression Algorithm
+plt.figure(figsize=(12, 6))
+plt.subplot(1, 2, 1)
+sns.countplot(x='Geography', hue='Exited', data=data)
+plt.title('Geography Distribution for Churned Customers')
+plt.xlabel('Geography')
+plt.ylabel('Count')
+plt.legend(['Not Churned', 'Churned'])
 
-from sklearn.linear_model import LogisticRegression
-lg = LogisticRegression()
-lg.fit(x_train, y_train)
-
-y_pred1 = lg.predict(x_test)
-
-
-# After Fitting the X & Y with Logistic Regression Algorithm Now let's Check the Confusion Matrix, Accuracy Score with its Classification Report
-from sklearn.metrics import classification_report
-print(classification_report(y_test, y_pred1))
-
-from sklearn.metrics import accuracy_score
-print(accuracy_score(y_test, y_pred1))
-
-from sklearn.metrics import roc_curve, auc 
- # Get Predicted probabilities for the positive class
-y_probs = model.predict_proba(x_test)[:, 1]
-
-# Calculating ROC Curve
-fpr, tpr, _ = roc_curve(y_test, y_probs)
-roc_auc = auc(fpr, tpr)
-
-# Ploting ROC Curve
-plt.plot(fpr, tpr, color = 'darkorange', lw = 2, label = 'ROC curve (area = %0.3f)' % roc_auc)
-plt.plot([0, 1], [0, 1], color = 'navy', lw = 2, linestyle = '--')
-plt.xlim([0.0, 1.0])
-plt.ylim([0.0, 1.05])
-plt.xlabel("False Positive Rate")
-plt.ylabel("True Positive Rate")
-plt.title("Receiver Operating Characteristic")
-plt.legend(loc = "lower right")
+plt.figure(figsize=(10, 6))
+sns.histplot(data[data['Exited'] == 0]['Age'], label='Not Churned', kde=True)
+sns.histplot(data[data['Exited'] == 1]['Age'], label='Churned', kde=True)
+plt.title("Age Distribution for Churned vs. Non-Churned Customers")
+plt.xlabel("Age")
+plt.ylabel("Count")
+plt.legend()
 plt.show()
 
-# Support Vector Classifier 
-from sklearn import svm
-sv = svm.SVC()
-sv.fit(x_train, y_train)
+# Correlation Matrix
+correlation_matrix = X.corr()
 
-y_pred2 = sv.predict(x_test)
-
-from sklearn.metrics import classification_report
-print(classification_report(y_test, y_pred2))
-
-from sklearn.metrics import accuracy_score
-print(accuracy_score(y_test, y_pred2))
-
-from sklearn.metrics import roc_curve, auc 
- # Get Predicted probabilities for the positive class
-y_probs = model.predict_proba(x_test)[:, 1]
-
-# Calculating ROC Curve
-fpr, tpr, _ = roc_curve(y_test, y_probs)
-roc_auc = auc(fpr, tpr)
-
-# Ploting ROC Curve
-plt.plot(fpr, tpr, color = 'darkorange', lw = 2, label = 'ROC curve (area = %0.3f)' % roc_auc)
-plt.plot([0, 1], [0, 1], color = 'navy', lw = 3, linestyle = '--')
-plt.xlim([0.0, 1.0])
-plt.ylim([0.0, 1.05])
-plt.xlabel("False Positive Rate")
-plt.ylabel("True Positive Rate")
-plt.title("Receiver Operating Characteristic")
-plt.legend(loc = "lower right")
+# Plot the correlation matrix heatmap
+plt.figure(figsize=(12, 10))
+sns.heatmap(correlation_matrix, annot=True, cmap="coolwarm", fmt='.2f', square=True)
+plt.title("Correlation Matrix of Features")
 plt.show()
-
-# Handling Imbalance Data Using SMOTE Module
-
-from imblearn.over_sampling import SMOTE
-x_re, y_re = SMOTE().fit_resample(x,y)
-y_re.value_counts()
-
-x_res = sclr.fit_transform(x_re)
-sv.fit(x_re,y_re)
-
-import joblib
-joblib.dump(sv, 'Prediction_Model_File')
-
-prediction_part = joblib.load('Prediction_Model_File')
-
-data1.columns
-
-# So, Based Upon the Above Given Columns We Give Input as 11 Values for Prediction
-# We import Warnings Module Inorder to Supress the Warnings in the Output
-import warnings
-warnings.filterwarnings('ignore')
-
-# Prediction_Part
-prediction_part.predict([[210,92,2,1.0,1,0,301.231,1,1,0]])
